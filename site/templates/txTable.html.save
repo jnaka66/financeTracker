@@ -1,0 +1,22 @@
+{% for row in data %}
+          <tr>
+            {% for entry in row %}
+                  <td>{{ entry }}</td>
+          {% endfor %}
+          </tr>
+          <br>
+        {% <html>
+<body>
+    <div>
+        {% for row in data %}
+	  <tr>
+            {% for entry in row %}    
+        	  <td>{{ entry }}</td>
+	  {% endfor %}
+	  </tr>
+	  <br>
+        {% endfor %}
+    </div>
+
+</body>
+</html>

@@ -2,7 +2,10 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 import psycopg2 as pg
 from datetime import date
+from updateDB import update_DB
 
+
+update_DB()
 alchemyEngine = create_engine('postgresql+psycopg2://jer:QASWEDFR1@127.0.0.1', pool_recycle=3600)
 dbConnection = alchemyEngine.connect()
 connection = alchemyEngine.raw_connection()
@@ -30,5 +33,6 @@ print(insertQuery)
 cursor.execute(insertQuery)
 connection.commit()
 connection.close()
+
 
 

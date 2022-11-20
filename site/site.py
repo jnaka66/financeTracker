@@ -7,7 +7,7 @@ import base64
 from io import BytesIO
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
-from siteHelpers import getCurrentValue
+from siteHelpers import getCurrentValue, makeSubplot
 
 app = Flask(__name__, template_folder='templates')
 alchemyEngine = create_engine('postgresql+psycopg2://jer:QASWEDFR1@127.0.0.1', pool_recycle=3600)
@@ -15,7 +15,7 @@ dbConnection = alchemyEngine.connect()
 
 @app.route('/')
 def home():
-   sum=getCurrentValue()
+   sum=getCurrentValue(dbConnection)
    return render_template('home.html', value=sum)
 
 @app.route('/tx')
@@ -30,7 +30,6 @@ def tx():
      df[key] = df[key].apply(value.format)
    sum=getCurrentValue()
    return render_template('txTable.html',table_name = 'All Transactions', table = df.to_html(classes='data', header="true"),value=sum)
-   #return '<header>All Transactions</header><br><a href="http://192.168.86.61:6969">Home</a><br>'+ df.to_html(classes='data', header="true")
    
 @app.route('/tx/<acct>')
 def txAcct(acct):
@@ -47,28 +46,19 @@ def txAcct(acct):
    
 @app.route('/history')
 def history():
-   df = pd.read_sql("select * from history order by date", dbConnection)
-   x_axis = df.date.tolist()
-   y_axis = df.total_value.tolist()
-   fig = plt.figure(figsize=(15, 10), dpi=80)
-   ax = fig.subplots()
-   ax.plot(x_axis, y_axis)
-   ax.grid()
-   fmt_month = mdates.MonthLocator()
-   fmt_year = mdates.YearLocator()
-   ax.xaxis.set_minor_locator(fmt_month)
-   ax.xaxis.set_minor_formatter(mdates.DateFormatter('%b'))
-   ax.xaxis.set_major_locator(fmt_year)
-   ax.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-   ax.tick_params(labelsize=20, which='both')
-   # create a second x-axis beneath the first x-axis to show the year in YYYY format
-   sec_xaxis = ax.secondary_xaxis(-0.1)
-   sec_xaxis.xaxis.set_major_locator(fmt_year)
-   sec_xaxis.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+   plt.figure(figsize=(20,10)) 
+   fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3,figsize=(18,8))
+   plt.subplots_adjust(left=0.05, bottom=0.07, right=.99, top=.95, wspace=.13, hspace=.25)
+   ax1 = makeSubplot(ax1, "Total", "total_value", dbConnection)
+   ax2 = makeSubplot(ax2, "Retirement", "retirement", dbConnection)
+   ax3 = makeSubplot(ax3, "Brokerage", "brokerage", dbConnection)
+   ax4 = makeSubplot(ax4, "IRA", "ira", dbConnection)
+   ax5 = makeSubplot(ax5, "Crypto", "crypto", dbConnection)
+   ax6 = makeSubplot(ax6, "Roth 401k", "roth_401k", dbConnection)
    buf = BytesIO()
    fig.savefig(buf, format="png")
    data = base64.b64encode(buf.getbuffer()).decode("ascii")
-   return f"<a href='http://192.168.86.61:6969'>home</a> <img src='data:image/png;base64,{data}'/>"
+   return f"<header><a href='http://192.168.86.61:6969'>home</a></header><br> <img src='data:image/png;base64,{data}'/align='left'>"
    
 @app.route('/historyTable')
 def historyTable():

@@ -3,10 +3,11 @@ from sqlalchemy import create_engine, text
 import psycopg2 as pg
 from datetime import date
 from updateDB import update_DB
+from connectionString import getConnectionString
 
 
 update_DB()
-alchemyEngine = create_engine('postgresql+psycopg2://jer:QASWEDFR1@127.0.0.1', pool_recycle=3600)
+alchemyEngine = create_engine(getConnectionString(), pool_recycle=3600)
 dbConnection = alchemyEngine.connect()
 connection = alchemyEngine.raw_connection()
 cursor = connection.cursor()

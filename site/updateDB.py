@@ -1,13 +1,14 @@
 import yfinance as yf
 import psycopg2
 from datetime import date
+from psycopg2connection import *
 
 def update_DB():
-    conn = psycopg2.connect(user="jer",
-                                    password="QASWEDFR1",
-                                    host="localhost",
-                                    port="5432",
-                                    database="jer")
+    conn = psycopg2.connect(user=getpsycopg2User(),
+                                    password=getpsycopg2PW(),
+                                    host=getpsycopg2Host(),
+                                    port=getpsycopg2Port(),
+                                    database=getpsycopg2db())
     cur = conn.cursor()
     cur.execute("Select distinct ticker from tx;")
     distinctTickersTuple=cur.fetchall()

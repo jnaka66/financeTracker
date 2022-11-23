@@ -1,0 +1,9 @@
+
+connectionString.py
+psycopg2connection.py
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+moolah.bkp

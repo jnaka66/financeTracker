@@ -32,9 +32,9 @@ def tx():
    df = pd.read_sql("select * from tx order by account, date_bought", dbConnection)
    df = pd.DataFrame(df, columns=      
    ['account','date_bought','shares','purchase_price','ticker',
-   'current_price','current_value','gain_loss','last_update','purchase_value'])
+   'current_price','current_value','gain_loss','last_update','purchase_value','percent_gain'])
    format_mapping={'account':'{}', 'date_bought':'{}', 'shares':'{}', 'purchase_price':'${:,.2f}' ,'ticker': '{}',
-   'current_price':'${:,.2f}','current_value':'${:,.2f}','gain_loss':'${:,.2f}','last_update': '{}','purchase_value':'${:,.2f}'}
+   'current_price':'${:,.2f}','current_value':'${:,.2f}','gain_loss':'${:,.2f}','last_update': '{}','purchase_value':'${:,.2f}', 'percent_gain':'%{:,.2f}'}
    for key, value in format_mapping.items():
      df[key] = df[key].apply(value.format)
    sum=getCurrentValue(dbConnection)
@@ -44,14 +44,46 @@ def tx():
 def txAcct(acct):
    query = "select * from tx where account='"+acct+"' order by account, date_bought"
    df = pd.read_sql(text(query), dbConnection)
+   
    df = pd.DataFrame(df, columns=      
    ['account','date_bought','shares','purchase_price','ticker',
-   'current_price','current_value','gain_loss','last_update','purchase_value'])
+   'current_price','current_value','gain_loss','last_update','purchase_value','percent_gain'])
    format_mapping={'account':'{}', 'date_bought':'{}', 'shares':'{}', 'purchase_price':'${:,.2f}' ,'ticker': '{}',
-   'current_price':'${:,.2f}','current_value':'${:,.2f}','gain_loss':'${:,.2f}','last_update': '{}','purchase_value':'${:,.2f}'}
+   'current_price':'${:,.2f}','current_value':'${:,.2f}','gain_loss':'${:,.2f}','last_update': '{}','purchase_value':'${:,.2f}', 'percent_gain':'%{:,.2f}'}
    for key, value in format_mapping.items():
      df[key] = df[key].apply(value.format)
-   return '<header>All Transactions</header><br><a href="http://192.168.86.61:6969">Home</a><br>'+ df.to_html(classes='data', header="true")
+   sum = getAccountLastValue(acct, dbConnection)
+   return render_template('txTable.html',table_name = acct.strip().title(), table = df.to_html(classes='data', header="true"),value=sum)
+
+@app.route('/summary')
+def summary():
+   query = "select ticker, sum(shares) as totalshares, avg(purchase_price) as averageprice, avg(current_price) as currentprice, sum(gain_loss) as profit, sum(current_value) as value, max(date_bought) as recentdate, ((sum(current_value)/sum(purchase_value)) *100)-100 as percentgain from tx group by ticker order by ticker"
+   df = pd.read_sql(text(query), dbConnection)
+   df = pd.DataFrame(df, columns=      
+   ['ticker','totalshares','averageprice','currentprice','profit',
+   'value','recentdate', 'percentgain'])
+   format_mapping={'ticker':'{}','totalshares':'{}', 'averageprice':'${:,.2f}',
+   'currentprice':'${:,.2f}','profit':'${:,.2f}','value':'${:,.2f}','recentdate': '{}', 'percentgain':'%{:,.2f}'}
+   for key, value in format_mapping.items():
+     df[key] = df[key].apply(value.format)
+   sum = getCurrentValue(dbConnection)
+   gain = getGain(dbConnection)
+   return render_template('summary.html',table_name = 'Overall Summary', table = df.to_html(classes='data', header="true"),value=sum,gain=gain)
+   
+@app.route('/summary/<acct>')
+def acctSummary(acct):
+   query = "select ticker, sum(shares) as shares, avg(purchase_price) as averageprice, avg(current_price) as currentprice, sum(gain_loss) as profit, sum(current_value) as value, max(date_bought) as recentdate, ((sum(current_value)/sum(purchase_value)) *100)-100 as percentgain from tx where account='"+acct+"' group by ticker order by ticker"
+   df = pd.read_sql(text(query), dbConnection)
+   df = pd.DataFrame(df, columns=      
+   ['ticker','shares','averageprice','currentprice','profit',
+   'value','recentdate', 'percentgain'])
+   format_mapping={'ticker':'{}','shares':'{}', 'averageprice':'${:,.2f}',
+   'currentprice':'${:,.2f}','profit':'${:,.2f}','value':'${:,.2f}','recentdate': '{}', 'percentgain':'%{:,.2f}'}
+   for key, value in format_mapping.items():
+     df[key] = df[key].apply(value.format)
+   sum = getAccountLastValue(acct, dbConnection)
+   gain = getAccountGain(acct,dbConnection)
+   return render_template('summary.html',table_name = acct, table = df.to_html(classes='data', header="true"),value=sum,gain=gain)
    
 @app.route('/history')
 def history():
@@ -88,7 +120,7 @@ def historyTable():
 def enter():
    form = TradeForm()
    if form.validate_on_submit():
-      query = "insert into tx Values ('" +form.account.data + "', DATE '" + form.date.data + "', " + form.shares.data + ", " + form.price.data  + ", ' "+ form.ticker.data + "',0,0,0,DATE '2022-07-29',0)"
+      query = "insert into tx Values ('" +form.account.data + "', DATE '" + form.date.data + "', " + form.shares.data + ", " + form.price.data  + ", '"+ form.ticker.data.strip() + "',0,0,0,DATE '2022-07-29'," + str(float(form.shares.data) * float(form.price.data)) +")"
       with alchemyEngine.connect() as con:
          rs = con.execute(query) 
    return render_template('enter.html', form=form)
@@ -119,4 +151,4 @@ def trackedTradesTable():
    return render_template('trackerTable.html',table_name = 'Tracked Trades', table = df.to_html(classes='data', header="true"),value=totalProfit)
 
 if __name__ == '__main__':
-   app.run('0.0.0.0',6969)
+   app.run('0.0.0.0',6969,debug=True)

@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+   <style>
+		body { background: #e8f1f9; }
+	</style>
+   <body>
+   
+      <h1>{{table_name}}</h1>
+      <h2>Current Value: ${{value}}</h2>
+      <h2>Gain: {{gain}}</h2>
+      <a href="http://192.168.86.61:6969">Home</a><br>
+      Summaries: 
+      <a href="http://192.168.86.61:6969/summary/brokerage">Brokerage</a>&nbsp;
+      <a href="http://192.168.86.61:6969/summary/ira">Roth IRA</a>&nbsp;
+      <a href="http://192.168.86.61:6969/summary/crypto">crypto</a>&nbsp;
+      <a href="http://192.168.86.61:6969/summary/trad_401k">Trad 401k</a>&nbsp;
+      <a href="http://192.168.86.61:6969/summary/roth_401k">Roth 401k</a><br>
+      Transaction Tables: 
+      <a href="http://192.168.86.61:6969/tx/brokerage">Brokerage</a>&nbsp;
+      <a href="http://192.168.86.61:6969/tx/ira">Roth IRA</a>&nbsp;
+      <a href="http://192.168.86.61:6969/tx/crypto">crypto</a>&nbsp;
+      <a href="http://192.168.86.61:6969/tx/trad_401k">Trad 401k</a>&nbsp;
+      <a href="http://192.168.86.61:6969/tx/roth_401k">Roth 401k</a>&nbsp;
+      {{table|safe}}
+      
+   </body>
+</html>

@@ -28,6 +28,20 @@ def getAccountLastValue(account, dbConnection):
     value = df.iloc[0][account]
     return value
 
+def getGain(dbConnection):
+    df = pd.read_sql("select ((sum(current_value)/sum(purchase_value)) *100)-100 as gain from tx", dbConnection)
+    format = '%{:,.2f}'
+    df['gain'] = df['gain'].apply(format.format)
+    gain = df.iloc[0]['gain']
+    return gain
+
+def getAccountGain(account, dbConnection):
+    df = pd.read_sql("select ((sum(current_value)/sum(purchase_value)) *100)-100 as gain from tx where account = '" + account+"'", dbConnection)
+    format = '%{:,.2f}'
+    df['gain'] = df['gain'].apply(format.format)
+    gain = df.iloc[0]['gain']
+    return gain
+
 def makeSubplot(df, sp,title,account, dbConnection):
     y = df[account].tolist()
     y = [value for value in y if value != 0] #filter 0s before data recorded

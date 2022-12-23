@@ -16,8 +16,18 @@ from siteHelpers import *
 from connectionString import *
 import time
 
+'''
+Features to add:
+tracking of aggressive holding % vs lame
+tracking of contributions
+overlaying graphs with dynamic URL?
+fullscreen graphs on click
+add close option to tracked trades
+
+'''
+
 app = Flask(__name__, template_folder='templates')
-app.config['SECRET_KEY'] = getWTFSecret()# Flask-WTF requires an encryption key - the string can be anything
+app.config['SECRET_KEY'] = getWTFSecret()# Flask-WTF requires an encryption key
 Bootstrap(app)# Flask-Bootstrap requires this line
 alchemyEngine = create_engine(getConnectionString(), pool_recycle=3600)
 dbConnection = alchemyEngine.connect()
@@ -95,12 +105,12 @@ def history():
    plt.figure(figsize=(20,10)) 
    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3,figsize=(18,8))
    plt.subplots_adjust(left=0.05, bottom=0.07, right=.99, top=.95, wspace=.13, hspace=.25)
-   ax1 = makeSubplot(df, ax1, "Total", "total_value", dbConnection)
-   ax2 = makeSubplot(df, ax2, "Retirement", "retirement", dbConnection)
-   ax3 = makeSubplot(df, ax3, "Brokerage", "brokerage", dbConnection)
-   ax4 = makeSubplot(df, ax4, "IRA", "ira", dbConnection)
-   ax5 = makeSubplot(df, ax5, "Crypto", "crypto", dbConnection)
-   ax6 = makeSubplot(df, ax6, "Roth 401k", "roth_401k", dbConnection)
+   ax1 = makeSubplot([df], ax1, "Total", "total_value", dbConnection)
+   ax2 = makeSubplot([df], ax2, "Retirement", "retirement", dbConnection)
+   ax3 = makeSubplot([df], ax3, "Brokerage", "brokerage", dbConnection)
+   ax4 = makeSubplot([df], ax4, "IRA", "ira", dbConnection)
+   ax5 = makeSubplot([df], ax5, "Crypto", "crypto", dbConnection)
+   ax6 = makeSubplot([df], ax6, "Roth 401k", "roth_401k", dbConnection)
    print("plot time: " + str(time.time() - queryTime) )
    buf = BytesIO()
    fig.savefig(buf, format="png")
@@ -138,17 +148,39 @@ def trackedEnter():
 @app.route('/trackedTrades/Table')
 def trackedTradesTable():
    updateTrackerPrices()
-   df = pd.read_sql("select * from tracker order by date", dbConnection)
-   df = pd.DataFrame(df, columns=['date','sellticker', 'sellshares', 'sellprice', 'buyticker', 'buyshares', 'buyprice','profit','profitpercent'])
-   format_mapping={'date':'{}', 'sellticker':'{}', 'sellshares':'{:,.2f}', 'sellprice':'${:,.2f}', 'buyticker':'{}', 'buyshares':'{:,.2f}', 'buyprice':'${:,.2f}','profit':'${:,.2f}', 'profitpercent':'%{:,.2f}'}
+   df = pd.read_sql("select date, sellticker, sellshares, sellprice, sellshares*sellprice as sellamount, buyticker, buyshares, buyprice, buyshares*buyprice as buyamount, profit, profitpercent from tracker order by date", dbConnection)
+   df = pd.DataFrame(df, columns=['date','sellticker','sellshares', 'sellprice', 'sellamount', 'buyticker', 'buyshares', 'buyprice','buyamount', 'profit','profitpercent'])
+   format_mapping={'date':'{}', 'sellticker':'{}', 'sellshares':'{:,.2f}', 'sellprice':'${:,.2f}', 'sellamount':'${:,.2f}', 'buyticker':'{}', 'buyshares':'{:,.2f}', 'buyprice':'${:,.2f}','buyamount':'${:,.2f}', 'profit':'${:,.2f}', 'profitpercent':'%{:,.2f}'}
    for key, value in format_mapping.items():
      df[key] = df[key].apply(value.format)
-   profitdf = pd.read_sql("select sum(profit) from tracker", dbConnection)
+   openprofitdf = pd.read_sql("select sum(profit) from tracker where closed = false", dbConnection)
    format = '{:,.2f}'
-   profitdf['sum'] = profitdf['sum'].apply(format.format)
-   totalProfit = profitdf.iloc[0]['sum']
-   #return '<header>Tracked Trades</header><br><a href="http://192.168.86.61:6969">Home</a><br>'+ df.to_html(classes='data', header="true")
+   openProfit = openprofitdf.iloc[0]['sum']
+   closedprofitdf = pd.read_sql("select sum(closed_profit) from tracker where closed = true", dbConnection)
+   closedProfit = closedprofitdf.iloc[0]['sum']
+   totalProfit = str(float(format.format(openProfit))+ float(format.format(closedProfit))).format(format)
    return render_template('trackerTable.html',table_name = 'Tracked Trades', table = df.to_html(classes='data', header="true"),value=totalProfit)
+
+@app.route('/analysis')
+def analysis():
+   aggPercent, lamePercent = getWeights('agg vs lame',dbConnection)
+   
+   #plot
+   query = "select date, aggpercent from history where aggpercent != 0"
+   aggdf = pd.read_sql(text(query), dbConnection)
+   query = "select date, lamepercent from history where lamepercent != 0"
+   lamedf = pd.read_sql(text(query), dbConnection)
+   colNames = ['aggpercent','lamepercent']
+   plt.figure(figsize=(20,10)) 
+   fig, ax1 = plt.subplots(1, 1,figsize=(18,8))
+   plt.subplots_adjust(left=0.05, bottom=0.07, right=.99, top=.95, wspace=.13, hspace=.25)
+   ax1 = makeSubplot([aggdf,lamedf], ax1, "Aggressive vs Lame Weight", "na", dbConnection,colNames)
+   buf = BytesIO()
+   fig.savefig(buf, format="png")
+   data = base64.b64encode(buf.getbuffer()).decode("ascii")
+   sum = getCurrentValue(dbConnection)
+   return render_template('analysis.html',data =data , aggPercent = aggPercent, lamePercent = lamePercent,value=sum)
+   #return f"<header><a href='http://192.168.86.61:6969'>home</a></header><br> <img src='data:image/png;base64,{data}'/align='left'>"
 
 if __name__ == '__main__':
    app.run('0.0.0.0',6969,debug=True)

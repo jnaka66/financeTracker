@@ -11,6 +11,7 @@ from wtforms.validators import DataRequired
 import psycopg2
 import yfinance as yf
 from psycopg2connection import *
+import time
 
 
 def getCurrentValue(dbConnection):
@@ -42,25 +43,47 @@ def getAccountGain(account, dbConnection):
     gain = df.iloc[0]['gain']
     return gain
 
-def makeSubplot(df, sp,title,account, dbConnection):
-    y = df[account].tolist()
-    y = [value for value in y if value != 0] #filter 0s before data recorded
-    x = df.date.tolist()[-len(y):] #make dates same size as data
-    sp.plot(x, y)
-    sp.grid()
-    sp.set_title(title + ": $" + getAccountLastValue(account,dbConnection))
-    fmt_month = mdates.MonthLocator()
-    fmt_year = mdates.YearLocator()
-    sp.xaxis.set_minor_locator(fmt_month)
-    sp.xaxis.set_minor_formatter(mdates.DateFormatter('%b'))
-    sp.xaxis.set_major_locator(fmt_year)
-    sp.xaxis.set_major_formatter(mdates.DateFormatter('%b')) 
-    sp.tick_params(labelsize=10, which='both')
-    # create a second x-axis beneath the first x-axis to show the year in YYYY format
-    sec_xaxis = sp.secondary_xaxis(-0.1)
-    sec_xaxis.xaxis.set_major_locator(fmt_year)
-    sec_xaxis.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    return sp
+def makeSubplot(dfs, sp,title,account, dbConnection, colNames='' ):
+    if(len(dfs) ==1):#regular /history page
+        df = dfs[0]
+        y = df[account].tolist()
+        y = [value for value in y if value != 0] #filter 0s before data recorded this is not the slow part, e-5 time
+        x = df.date.tolist()[-len(y):] #make dates same size as data
+        sp.plot(x, y)
+        sp.grid()
+        sp.set_title(title + ": $" + getAccountLastValue(account,dbConnection))
+        fmt_month = mdates.MonthLocator()
+        fmt_year = mdates.YearLocator()
+        sp.xaxis.set_minor_locator(fmt_month)
+        sp.xaxis.set_minor_formatter(mdates.DateFormatter('%b'))
+        sp.xaxis.set_major_locator(fmt_year)
+        sp.xaxis.set_major_formatter(mdates.DateFormatter('%b')) 
+        sp.tick_params(labelsize=10, which='both')
+        # create a second x-axis beneath the first x-axis to show the year in YYYY format
+        sec_xaxis = sp.secondary_xaxis(-0.1)
+        sec_xaxis.xaxis.set_major_locator(fmt_year)
+        sec_xaxis.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        return sp
+    else: #for /analysis page
+        for i, df in enumerate(dfs):
+            y = df[colNames[i]].tolist()
+            y = [value for value in y if value != 0] #filter 0s before data recorded this is not the slow part, e-5 time
+            x = df.date.tolist()[-len(y):] #make dates same size as data
+            sp.plot(x, y)
+        sp.set_title(title)
+        sp.grid()
+        fmt_month = mdates.MonthLocator()
+        fmt_year = mdates.YearLocator()
+        sp.xaxis.set_minor_locator(fmt_month)
+        sp.xaxis.set_minor_formatter(mdates.DateFormatter('%b'))
+        sp.xaxis.set_major_locator(fmt_year)
+        sp.xaxis.set_major_formatter(mdates.DateFormatter('%b')) 
+        sp.tick_params(labelsize=10, which='both')
+        # create a second x-axis beneath the first x-axis to show the year in YYYY format
+        sec_xaxis = sp.secondary_xaxis(-0.1)
+        sec_xaxis.xaxis.set_major_locator(fmt_year)
+        sec_xaxis.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        return sp
 
 def updateTrackerPrices():
     conn = psycopg2.connect(user=getpsycopg2User(),
@@ -99,15 +122,33 @@ def updateTrackerPrices():
         prices.append(last_quote)
         cur.execute("UPDATE tracker SET buy_currentvalue = (%s) * buyshares where buyticker=(%s)",(last_quote,ticker))
     cur.execute("UPDATE tracker SET buyprofit = buy_currentvalue - (buyshares*buyprice)")
-
     #profit and profit%
     cur.execute("UPDATE tracker SET profit = (buyprofit - sellprofit)")
     cur.execute("UPDATE tracker SET profitpercent = (profit/(GREATEST(buyshares*buyprice,sellshares*sellprice)))*100")
-    
-    
     conn.commit()
     cur.close()
     conn.close()
+
+def getWeights(arg,dbConnection): #I intend to expand options for this
+    if(arg == 'agg vs lame'):
+        #agg vs lame tickers is hardcoded, could use something like beta to determine, but this is for personal use
+        lameTickers = ['VTI','VTSAX','cash','VOO','VFIAX','VFFSX']
+        #get list of all tickers and eliminate the lames to get the aggs
+        query = "select distinct ticker from tx"
+        df = pd.read_sql(text(query), dbConnection)
+        allTickers = df['ticker'].tolist()
+        aggressiveTickers = [aggressiveTickers for aggressiveTickers in allTickers if aggressiveTickers not in lameTickers]
+        #now get sums of holdings in each group to determine weights
+        query = "select sum(current_value) from tx where ticker in ('" + "','".join(lameTickers) + "')"
+        lamedf = pd.read_sql(text(query), dbConnection)
+        query = "select sum(current_value) from tx where ticker in ('" + "','".join(aggressiveTickers) + "')"
+        aggdf = pd.read_sql(text(query), dbConnection)
+        lameSum = lamedf['sum'][0]
+        aggSum = aggdf['sum'][0]
+        lamePercent = round((lameSum / (lameSum+aggSum)) * 100,2) 
+        aggPercent = round((aggSum / (lameSum+aggSum)) * 100,2)
+        return aggPercent, lamePercent
+
 
 class TradeForm(FlaskForm):
     account = StringField('Account', validators=[DataRequired()])

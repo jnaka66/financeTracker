@@ -5,12 +5,12 @@ Personal finance and trading tracker to replace excel sheets.
 Python \
 SQL (postgres) \
 HTML (if that counts) \
-CSS (very simple) \
+CSS (very simple) 
 
 # Technologies
 Python-Flask (Framework) \
 Postgres DB \
 Docker \
-MongoDB \
+MongoDB 
 
 

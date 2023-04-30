@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, current_app, render_template_string
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
@@ -16,9 +16,14 @@ from siteHelpers import *
 from connectionString import *
 import time
 
+import os
+from flask_sqlalchemy import SQLAlchemy
+from flask_security import Security, MongoEngineUserDatastore, auth_required, hash_password, UserMixin, RoleMixin
+from flask_mongoengine import MongoEngine
+
 '''
 Features to add:
-tracking of aggressive holding % vs lame
+tracking of aggressive holding % vs lame - DONE
 tracking of contributions
 overlaying graphs with dynamic URL?
 fullscreen graphs on click
@@ -27,17 +32,47 @@ add close option to tracked trades
 '''
 
 app = Flask(__name__, template_folder='templates')
-app.config['SECRET_KEY'] = getWTFSecret()# Flask-WTF requires an encryption key
+
+#security section
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", getWTFSecret())
+app.config['SECURITY_PASSWORD_SALT'] = os.environ.get("SECURITY_PASSWORD_SALT", getSalt())
+# MongoDB Config
+app.config['MONGODB_DB'] = 'flaskdb'
+app.config['MONGODB_HOST'] = 'localhost'
+app.config['MONGODB_PORT'] = 27017
+
+db = MongoEngine(app)
+class Role(db.Document, RoleMixin):
+    name = db.StringField(max_length=80, unique=True)
+    description = db.StringField(max_length=255)
+    permissions = db.StringField(max_length=255)
+
+class User(db.Document, UserMixin):
+    email = db.StringField(max_length=255, unique=True)
+    password = db.StringField(max_length=255)
+    active = db.BooleanField(default=True)
+    fs_uniquifier = db.StringField(max_length=64, unique=True)
+    confirmed_at = db.DateTimeField()
+    roles = db.ListField(db.ReferenceField(Role), default=[])
+
+# Setup Flask-Security
+user_datastore = MongoEngineUserDatastore(db, User, Role)
+app.security = Security(app, user_datastore)
+
 Bootstrap(app)# Flask-Bootstrap requires this line
 alchemyEngine = create_engine(getConnectionString(), pool_recycle=3600)
 dbConnection = alchemyEngine.connect()
+#end security
+
 
 @app.route('/')
+@auth_required()
 def home():
    sum=getCurrentValue(dbConnection)
    return render_template('home.html', value=sum)
 
 @app.route('/tx')
+@auth_required()
 def tx():
    df = pd.read_sql("select * from tx order by account, date_bought", dbConnection)
    df = pd.DataFrame(df, columns=      
@@ -51,6 +86,7 @@ def tx():
    return render_template('txTable.html',table_name = 'All Transactions', table = df.to_html(classes='data', header="true"),value=sum)
    
 @app.route('/tx/<acct>')
+@auth_required()
 def txAcct(acct):
    query = "select * from tx where account='"+acct+"' order by account, date_bought"
    df = pd.read_sql(text(query), dbConnection)
@@ -66,6 +102,7 @@ def txAcct(acct):
    return render_template('txTable.html',table_name = acct.strip().title(), table = df.to_html(classes='data', header="true"),value=sum)
 
 @app.route('/summary')
+@auth_required()
 def summary():
    query = "select ticker, sum(shares) as totalshares, avg(purchase_price) as averageprice, avg(current_price) as currentprice, sum(gain_loss) as profit, sum(current_value) as value, max(date_bought) as recentdate, ((sum(current_value)/sum(purchase_value)) *100)-100 as percentgain from tx group by ticker order by ticker"
    df = pd.read_sql(text(query), dbConnection)
@@ -81,6 +118,7 @@ def summary():
    return render_template('summary.html',table_name = 'Overall Summary', table = df.to_html(classes='data', header="true"),value=sum,gain=gain)
    
 @app.route('/summary/<acct>')
+@auth_required()
 def acctSummary(acct):
    query = "select ticker, sum(shares) as shares, avg(purchase_price) as averageprice, avg(current_price) as currentprice, sum(gain_loss) as profit, sum(current_value) as value, max(date_bought) as recentdate, ((sum(current_value)/sum(purchase_value)) *100)-100 as percentgain from tx where account='"+acct+"' group by ticker order by ticker"
    df = pd.read_sql(text(query), dbConnection)
@@ -96,6 +134,7 @@ def acctSummary(acct):
    return render_template('summary.html',table_name = acct, table = df.to_html(classes='data', header="true"),value=sum,gain=gain)
    
 @app.route('/history')
+@auth_required()
 def history():
    start = time.time()
    query = "select * from history order by date"
@@ -118,6 +157,7 @@ def history():
    return f"<header><a href='http://192.168.86.61:6969'>home</a></header><br> <img src='data:image/png;base64,{data}'/align='left'>"
    
 @app.route('/historyTable')
+@auth_required()
 def historyTable():
    df = pd.read_sql("select * from history order by date", dbConnection)
    df = pd.DataFrame(df, columns=['date','total_value', 'roth_401k', 'trad_401k', 'crypto', 'retirement', 'brokerage', 'ira'])
@@ -127,6 +167,7 @@ def historyTable():
    return '<header>All History</header><br><a href="http://192.168.86.61:6969">Home</a><br>'+ df.to_html(classes='data', header="true")
 
 @app.route('/enter', methods=['GET', 'POST'])
+@auth_required()
 def enter():
    form = TradeForm()
    if form.validate_on_submit():
@@ -136,6 +177,7 @@ def enter():
    return render_template('enter.html', form=form)
 
 @app.route('/trackedTrades/Enter', methods=['GET', 'POST'])
+@auth_required()
 def trackedEnter():
    form = TrackedTradeForm()
    if form.validate_on_submit():
@@ -146,6 +188,7 @@ def trackedEnter():
    return render_template('enter.html', form=form)
 
 @app.route('/trackedTrades/Table')
+@auth_required()
 def trackedTradesTable():
    updateTrackerPrices()
    df = pd.read_sql("select date, sellticker, sellshares, sellprice, sellshares*sellprice as sellamount, buyticker, buyshares, buyprice, buyshares*buyprice as buyamount, profit, profitpercent from tracker order by date", dbConnection)
@@ -162,9 +205,9 @@ def trackedTradesTable():
    return render_template('trackerTable.html',table_name = 'Tracked Trades', table = df.to_html(classes='data', header="true"),value=totalProfit)
 
 @app.route('/analysis')
+@auth_required()
 def analysis():
    aggPercent, lamePercent = getWeights('agg vs lame',dbConnection)
-   
    #plot
    query = "select date, aggpercent from history where aggpercent != 0"
    aggdf = pd.read_sql(text(query), dbConnection)
@@ -182,5 +225,6 @@ def analysis():
    return render_template('analysis.html',data =data , aggPercent = aggPercent, lamePercent = lamePercent,value=sum)
    #return f"<header><a href='http://192.168.86.61:6969'>home</a></header><br> <img src='data:image/png;base64,{data}'/align='left'>"
 
+
 if __name__ == '__main__':
-   app.run('0.0.0.0',6969,debug=True)
+   app.run('0.0.0.0',4204,debug=True)

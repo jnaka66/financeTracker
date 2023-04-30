@@ -168,3 +168,5 @@ class TrackedTradeForm(FlaskForm):
     sellTicker = StringField('Sell Ticker', validators=[DataRequired()])
     submit = SubmitField('Submit')
 
+
+

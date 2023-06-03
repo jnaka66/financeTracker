@@ -63,13 +63,15 @@ Bootstrap(app)# Flask-Bootstrap requires this line
 alchemyEngine = create_engine(getConnectionString(), pool_recycle=3600)
 dbConnection = alchemyEngine.connect()
 #end security
-
+port = 4204
+ip=getIP()
+print(ip)
 
 @app.route('/')
 @auth_required()
 def home():
    sum=getCurrentValue(dbConnection)
-   return render_template('home.html', value=sum)
+   return render_template('home.html', value=sum, ip=ip, port=port)
 
 @app.route('/tx')
 @auth_required()
@@ -83,7 +85,7 @@ def tx():
    for key, value in format_mapping.items():
      df[key] = df[key].apply(value.format)
    sum=getCurrentValue(dbConnection)
-   return render_template('txTable.html',table_name = 'All Transactions', table = df.to_html(classes='data', header="true"),value=sum)
+   return render_template('txTable.html',table_name = 'All Transactions', table = df.to_html(classes='data', header="true"),value=sum, ip=ip, port=port)
    
 @app.route('/tx/<acct>')
 @auth_required()
@@ -99,7 +101,7 @@ def txAcct(acct):
    for key, value in format_mapping.items():
      df[key] = df[key].apply(value.format)
    sum = getAccountLastValue(acct, dbConnection)
-   return render_template('txTable.html',table_name = acct.strip().title(), table = df.to_html(classes='data', header="true"),value=sum)
+   return render_template('txTable.html',table_name = acct.strip().title(), table = df.to_html(classes='data', header="true"),value=sum, ip=ip, port=port)
 
 @app.route('/summary')
 @auth_required()
@@ -115,7 +117,7 @@ def summary():
      df[key] = df[key].apply(value.format)
    sum = getCurrentValue(dbConnection)
    gain = getGain(dbConnection)
-   return render_template('summary.html',table_name = 'Overall Summary', table = df.to_html(classes='data', header="true"),value=sum,gain=gain)
+   return render_template('summary.html',table_name = 'Overall Summary', table = df.to_html(classes='data', header="true"),value=sum,gain=gain, ip=ip, port=port)
    
 @app.route('/summary/<acct>')
 @auth_required()
@@ -131,7 +133,7 @@ def acctSummary(acct):
      df[key] = df[key].apply(value.format)
    sum = getAccountLastValue(acct, dbConnection)
    gain = getAccountGain(acct,dbConnection)
-   return render_template('summary.html',table_name = acct, table = df.to_html(classes='data', header="true"),value=sum,gain=gain)
+   return render_template('summary.html',table_name = acct, table = df.to_html(classes='data', header="true"),value=sum,gain=gain, ip=ip, port=port)
    
 @app.route('/history')
 @auth_required()
@@ -154,7 +156,7 @@ def history():
    buf = BytesIO()
    fig.savefig(buf, format="png")
    data = base64.b64encode(buf.getbuffer()).decode("ascii")
-   return f"<header><a href='http://192.168.86.61:6969'>home</a></header><br> <img src='data:image/png;base64,{data}'/align='left'>"
+   return f"<header><a href='http://{ip}:{port}'>home</a></header><br> <img src='data:image/png;base64,{data}'/align='left'>"
    
 @app.route('/historyTable')
 @auth_required()
@@ -164,7 +166,7 @@ def historyTable():
    format_mapping={'date':'{}', 'total_value':'${:,.2f}', 'roth_401k':'${:,.2f}', 'trad_401k':'${:,.2f}', 'crypto':'${:,.2f}', 'retirement':'${:,.2f}', 'brokerage':'${:,.2f}', 'ira':'${:,.2f}'}
    for key, value in format_mapping.items():
      df[key] = df[key].apply(value.format)
-   return '<header>All History</header><br><a href="http://192.168.86.61:6969">Home</a><br>'+ df.to_html(classes='data', header="true")
+   return '<header>All History</header><br><a href="http://' +ip+":"+str(port)+'">Home</a><br>'+ df.to_html(classes='data', header="true")
 
 @app.route('/enter', methods=['GET', 'POST'])
 @auth_required()
@@ -174,7 +176,7 @@ def enter():
       query = "insert into tx Values ('" +form.account.data + "', DATE '" + form.date.data + "', " + form.shares.data + ", " + form.price.data  + ", '"+ form.ticker.data.strip() + "',0,0,0,DATE '2022-07-29'," + str(float(form.shares.data) * float(form.price.data)) +")"
       with alchemyEngine.connect() as con:
          rs = con.execute(query) 
-   return render_template('enter.html', form=form)
+   return render_template('enter.html', form=form, ip=ip, port=port)
 
 @app.route('/trackedTrades/Enter', methods=['GET', 'POST'])
 @auth_required()
@@ -185,7 +187,7 @@ def trackedEnter():
       print(query)
       with alchemyEngine.connect() as con:
          rs = con.execute(query) 
-   return render_template('enter.html', form=form)
+   return render_template('enter.html', form=form, ip=ip, port=port)
 
 @app.route('/trackedTrades/Table')
 @auth_required()
@@ -202,7 +204,7 @@ def trackedTradesTable():
    closedprofitdf = pd.read_sql("select sum(closed_profit) from tracker where closed = true", dbConnection)
    closedProfit = closedprofitdf.iloc[0]['sum']
    totalProfit = str(float(format.format(openProfit))+ float(format.format(closedProfit))).format(format)
-   return render_template('trackerTable.html',table_name = 'Tracked Trades', table = df.to_html(classes='data', header="true"),value=totalProfit)
+   return render_template('trackerTable.html',table_name = 'Tracked Trades', table = df.to_html(classes='data', header="true"),value=totalProfit, ip=ip, port=port)
 
 @app.route('/analysis')
 @auth_required()
@@ -222,9 +224,7 @@ def analysis():
    fig.savefig(buf, format="png")
    data = base64.b64encode(buf.getbuffer()).decode("ascii")
    sum = getCurrentValue(dbConnection)
-   return render_template('analysis.html',data =data , aggPercent = aggPercent, lamePercent = lamePercent,value=sum)
-   #return f"<header><a href='http://192.168.86.61:6969'>home</a></header><br> <img src='data:image/png;base64,{data}'/align='left'>"
-
+   return render_template('analysis.html',data =data , aggPercent = aggPercent, lamePercent = lamePercent,value=sum, ip=ip, port=port)
 
 if __name__ == '__main__':
-   app.run('0.0.0.0',4204,debug=True)
+   app.run('0.0.0.0',port,debug=True)

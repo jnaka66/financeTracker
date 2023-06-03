@@ -12,6 +12,7 @@ import psycopg2
 import yfinance as yf
 from psycopg2connection import *
 import time
+import socket
 
 
 def getCurrentValue(dbConnection):
@@ -148,6 +149,11 @@ def getWeights(arg,dbConnection): #I intend to expand options for this
         lamePercent = round((lameSum / (lameSum+aggSum)) * 100,2) 
         aggPercent = round((aggSum / (lameSum+aggSum)) * 100,2)
         return aggPercent, lamePercent
+
+def getIP():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
 
 
 class TradeForm(FlaskForm):

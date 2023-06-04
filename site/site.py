@@ -226,5 +226,30 @@ def analysis():
    sum = getCurrentValue(dbConnection)
    return render_template('analysis.html',data =data , aggPercent = aggPercent, lamePercent = lamePercent,value=sum, ip=ip, port=port)
 
+@app.route('/budget')
+@auth_required()
+def budget():
+   #calculate table/ or refresh
+   pageyear=2023
+   tableHeaders = ['Category', 'Required','Budget','% of Budget']
+   categoriesdf = pd.read_sql("select category, required, budgetamount from budgetCategory order by required desc, category desc", dbConnection)
+   format_mapping={'category':'{}', 'required':'{}', 'budgetamount':'${:,.2f}'}
+   for key, value in format_mapping.items():
+     categoriesdf[key] = categoriesdf[key].apply(value.format)
+   tabledata = [[]]
+   for index, row in categoriesdf.iterrows():
+      tabledata.append([row['category'],row['required'],row['budgetamount']])
+   
+   tabledata.remove([])
+   #calcluated cols
+   #percentage of total
+   totalbudgetdf = pd.read_sql("select budgetamount from budgetcategory where category='Total'", dbConnection)
+   totalBudget = totalbudgetdf['budgetamount'][0]
+   for cat in tabledata:
+      #print(cat)
+      cat.append("{:3.2f}%".format((float(cat[2][1:].replace(",", ""))/totalBudget)*100))
+
+   return render_template('budgetHome.html',headers = tableHeaders, table=tabledata, ip=ip, port=port)
+
 if __name__ == '__main__':
    app.run('0.0.0.0',port,debug=True)

@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+   <style>
+		body { background: #e8f1f9; }
+        table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        }
+	</style>
+   <body>
+   
+    <h1>Budget Home</h1>
+    <a href="http://{{ip}}:{{port}}">Home</a><br>
+    <table>
+        <tr>
+            {% for header in headers %}
+                <th>{{header}}</th>
+            {% endfor %}
+        </tr>
+        {% for row in table %}
+        <tr>
+            {% for each in row %}
+            <td>{{each}}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+   </body>
+</html>

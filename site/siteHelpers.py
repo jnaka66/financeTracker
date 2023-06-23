@@ -68,8 +68,8 @@ def makeSubplot(dfs, sp,title,account, dbConnection, colNames='' ):
     else: #for /analysis page
         for i, df in enumerate(dfs):
             y = df[colNames[i]].tolist()
-            y = [value for value in y if value != 0] #filter 0s before data recorded this is not the slow part, e-5 time
-            x = df.date.tolist()[-len(y):] #make dates same size as data
+            #y = [value for value in y if value != 0] #filter 0s before data recorded this is not the slow part, e-5 time
+            x = df.date.tolist()
             sp.plot(x, y)
         sp.set_title(title)
         sp.grid()

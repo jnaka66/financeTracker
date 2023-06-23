@@ -211,9 +211,9 @@ def trackedTradesTable():
 def analysis():
    aggPercent, lamePercent = getWeights('agg vs lame',dbConnection)
    #plot
-   query = "select date, aggpercent from history where aggpercent != 0"
+   query = "select date, aggpercent from history where aggpercent != 0 order by date"
    aggdf = pd.read_sql(text(query), dbConnection)
-   query = "select date, lamepercent from history where lamepercent != 0"
+   query = "select date, lamepercent from history where lamepercent != 0 order by date"
    lamedf = pd.read_sql(text(query), dbConnection)
    colNames = ['aggpercent','lamepercent']
    plt.figure(figsize=(20,10)) 

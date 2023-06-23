@@ -27,6 +27,7 @@ def update_DB():
         print(ticker, last_quote)
         cur.execute("UPDATE tx SET current_price = (%s), current_value = shares*(%s), last_update = (%s) where ticker=(%s)",(last_quote,last_quote,date.today(),ticker))
     cur.execute("UPDATE tx SET gain_loss = current_value-purchase_value")
+    cur.execute("UPDATE tx SET percent_gain = (gain_loss/purchase_value)*100")
     conn.commit()
     cur.close()
     conn.close()

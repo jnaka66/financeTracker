@@ -2,22 +2,49 @@
 <html>
    <style>
 		body { background: #e8f1f9; }
+      ul {
+         list-style-type: none;
+         margin: 0;
+         padding: 0;
+         width: 10%;
+         background-color: #f1f1f1;
+         height: 100%; /* Full height */
+         position: fixed; /* Make it stick, even on scroll */
+         overflow: auto; /* Enable scrolling if the sidenav has too much content */
+      }
+      li a {
+         display: block;
+         color: #000;
+         padding: 8px 8px;
+         text-decoration: none;
+      }
+
+         li a.active {
+         background-color: #04AA6D;
+         color: white;
+      }
+
+         li a:hover:not(.active) {
+         background-color: #555;
+         color: white;
+      }
 	</style>
    <body>
-   
-      <h1>Jeremy's Trade Tracker</h1>
-      <h2>Current Value: ${{value}}</h2>
-      <a href="/history">View Charts</a></br>
-      <a href="/trackedTrades/Table">View Tracked Trade Table</a></br>
-      <a href="/summary">Summaries</a></br>
-      <a href="/analysis">Analysis</a></br>
-      <a href="/tx">View All Transactions Table</a></br>
-      <a href="/historyTable">View History Table</a></br>
-      <a href="/enter">Enter a Trade</a></br>
-      <a href="/trackedTrades/Enter">Enter a Trade to Track</a></br>
-      <br>
-      <br>
-      <a href="/budget">Budget</a></br>
-      
+      <ul>
+         <li><a href="/history">Graphs</a></li>
+         <li><a href="/trackedTrades/Table">Tracked Trade Table</a></li>
+         <li><a href="/summary">Summaries</a></li>
+         <li><a href="/analysis">Analysis</a></li>
+         <li><a href="/tx">All Transactions Table</a></li>
+         <li><a href="/historyTable">History Table</a></li>
+         <li><a href="/enter">Enter a Trade</a></li>
+         <li><a href="/trackedTrades/Enter">Enter a Tracked Trade</a></li>
+         <li><br></li>
+         <li><a href="/budget">Budget</a></li>
+      </ul>
+      <div style="margin-left:10%;padding:1px 16px;height:1000px;">
+         <h1>Jeremy's Trade Tracker</h1>
+         <h2>Current Value: ${{value}}</h2>
+      </div>
    </body>
 </html>

@@ -71,7 +71,14 @@ print(ip)
 @auth_required()
 def home():
    sum=getCurrentValue(dbConnection)
-   return render_template('home.html', value=sum, ip=ip, port=port)
+   df = pd.read_sql("select date, total_value from history where date >= CURRENT_DATE-30 order by date", dbConnection)
+   data = df.values.tolist()
+   x = []
+   y= []
+   for i in range(len(data)):#definitely a better way
+      x.append(i)
+      y.append(data[i][1])
+   return render_template('home.html', value=sum, x=x, y=y)
 
 @app.route('/tx')
 @auth_required()
@@ -138,11 +145,11 @@ def acctSummary(acct):
 @app.route('/history')
 @auth_required()
 def history():
-   start = time.time()
+   #start = time.time()
    query = "select * from history order by date"
    df = pd.read_sql(text(query), dbConnection)
-   print("query: " + str(time.time() - start))
-   queryTime = time.time()
+   #print("query: " + str(time.time() - start))
+   #queryTime = time.time()
    plt.figure(figsize=(20,10)) 
    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3,figsize=(18,8))
    plt.subplots_adjust(left=0.05, bottom=0.07, right=.99, top=.95, wspace=.13, hspace=.25)
@@ -152,7 +159,7 @@ def history():
    ax4 = makeSubplot([df], ax4, "IRA", "ira", dbConnection)
    ax5 = makeSubplot([df], ax5, "Crypto", "crypto", dbConnection)
    ax6 = makeSubplot([df], ax6, "Roth 401k", "roth_401k", dbConnection)
-   print("plot time: " + str(time.time() - queryTime) )
+   #print("plot time: " + str(time.time() - queryTime) )
    buf = BytesIO()
    fig.savefig(buf, format="png")
    data = base64.b64encode(buf.getbuffer()).decode("ascii")

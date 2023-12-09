@@ -7,3 +7,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 moolah.bkp
+/incoming/*
+/archive/*
+site/FILE
+site/out.txt
